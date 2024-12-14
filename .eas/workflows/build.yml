@@ -1,0 +1,41 @@
+name: Fingerprint
+
+on:
+  push:
+    branches: ['*']
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    outputs:
+      fingerprint_hash: ${{ steps.fingerprint_step_id.outputs.fingerprint_hash }}
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Install additional tools
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+      - name: Set fingerprint variables
+        id: fingerprint_step_id
+        outputs: [fingerprint_hash]
+        run: |
+          FINGERPRINT=$(npx expo-updates fingerprint:generate --platform ios)
+          FINGERPRINT_HASH=$(echo $FINGERPRINT | jq -r '.hash')
+          set-output fingerprint_hash $FINGERPRINT_HASH
+  get_build:
+    name: Check for existing build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.fingerprint_hash }}
+  build_ios:
+    name: Build iOS
+    needs: [get_build]
+    if: "${{ needs.get_build.outputs.build_id ? '' : 'true' }}"
+    type: build
+    params:
+      platform: ios
+      profile: development
+  publish_update:
+    name: Publish update
+    after: [build_ios]
+    type: update

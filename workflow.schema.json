@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema",
+  "$ref": "#/$defs/workflow",
+  "$defs": {
+    "workflow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["jobs"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the workflow, uses the workflow file name by default."
+        },
+        "on": {
+          "type": "object",
+          "description": "Configure when the workflow should run.",
+          "additionalProperties": false,
+          "properties": {
+            "push": {
+              "$ref": "#/$defs/triggerConfig",
+              "description": "Run the workflow when pushing to the repository."
+            },
+            "pull_request": {
+              "$ref": "#/$defs/triggerConfig",
+              "description": "Run the workflow when opening or updating a pull request."
+            }
+          }
+        },
+        "jobs": {
+          "type": "object",
+          "description": "A sequence of jobs which can depend on and pass data between each other.",
+          "patternProperties": {
+            ".": { "$ref": "#/$defs/job" }
+          }
+        }
+      }
+    },
+    "triggerConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "branches": {
+          "oneOf": [
+            {
+              "type": "object",
+              "description": "All branch names or branch glob-patterns to include. Uses `['*']` by default."
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "All branch names or branch glob-patterns to include."
+            }
+          ]
+        }
+      }
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 50,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Optional name of the workflow job"
+        },
+        "type": {
+          "$ref": "#/$defs/jobTypes",
+          "description": "Built-in presets to use within a workflow job"
+        },
+        "if": {
+          "type": "string",
+          "description": "An expression to conditionally run this job",
+          "maxLength": 250
+        },
+        "needs": {
+          "type": "array",
+          "description": "References to other workflow jobs that **needs** to finish successfully before this job runs",
+          "minLength": 1,
+          "items": { "type": "string" }
+        },
+        "after": {
+          "type": "array",
+          "description": "Only run this workflow job **after** these jobs are finished successfully",
+          "minLength": 1,
+          "items": { "type": "string" }
+        },
+        "outputs": {
+          "type": "object",
+          "description": "Outputs defined as key-value pairs, that are available from other jobs."
+        },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jobStep" }
+        },
+        "params": { "type": "object" }
+      }
+    },
+    "jobStep": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run"],
+          "properties": {
+            "name": { "type": "string" },
+            "id": { "type": "string" },
+            "run": { "type": "string" },
+            "outputs": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uses"],
+          "properties": {
+            "name": { "type": "string" },
+            "uses": { "$ref": "#/$defs/jobSteps" }
+          }
+        }
+      ]
+    },
+    "jobSteps": {
+      "description": "TODO: find complete list",
+      "enum": ["eas/checkout", "eas/install_node_modules"]
+    },
+    "jobTypes": {
+      "enum": ["build", "submit", "custom", "require-approval", "update", "maestro", "get-build", "deploy"]
+    }
+  }
+}
