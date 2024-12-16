@@ -1,133 +1,546 @@
 {
-  "$schema": "http://json-schema.org/draft-06/schema",
   "$ref": "#/$defs/workflow",
   "$defs": {
     "workflow": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["jobs"],
       "properties": {
         "name": {
           "type": "string",
-          "description": "The name of the workflow, uses the workflow file name by default."
+          "description": "TODO: workflow.name"
         },
         "on": {
           "type": "object",
-          "description": "Configure when the workflow should run.",
-          "additionalProperties": false,
-          "properties": {
-            "push": {
-              "$ref": "#/$defs/triggerConfig",
-              "description": "Run the workflow when pushing to the repository."
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "branches": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "default": [
+                  "*"
+                ]
+              }
             },
-            "pull_request": {
-              "$ref": "#/$defs/triggerConfig",
-              "description": "Run the workflow when opening or updating a pull request."
-            }
-          }
+            "additionalProperties": false
+          },
+          "propertyNames": {
+            "enum": [
+              "push",
+              "pull_request"
+            ]
+          },
+          "description": "TODO: workflow.on"
         },
         "jobs": {
           "type": "object",
-          "description": "A sequence of jobs which can depend on and pass data between each other.",
-          "patternProperties": {
-            ".": { "$ref": "#/$defs/job" }
-          }
-        }
-      }
-    },
-    "triggerConfig": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "branches": {
-          "oneOf": [
-            {
-              "type": "object",
-              "description": "All branch names or branch glob-patterns to include. Uses `['*']` by default."
-            },
-            {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/buildJob"
               },
-              "description": "All branch names or branch glob-patterns to include."
-            }
-          ]
+              {
+                "$ref": "#/$defs/customJob"
+              },
+              {
+                "$ref": "#/$defs/deployJob"
+              },
+              {
+                "$ref": "#/$defs/getBuildJob"
+              },
+              {
+                "$ref": "#/$defs/maestroJob"
+              },
+              {
+                "$ref": "#/$defs/requireApprovalJob"
+              },
+              {
+                "$ref": "#/$defs/submitJob"
+              },
+              {
+                "$ref": "#/$defs/updateJob"
+              }
+            ]
+          },
+          "description": "TODO: workflow.job"
         }
-      }
+      },
+      "required": [
+        "jobs"
+      ],
+      "additionalProperties": false
     },
-    "job": {
+    "buildJob": {
       "type": "object",
-      "additionalProperties": false,
-      "maxProperties": 50,
       "properties": {
         "name": {
-          "type": "string",
-          "description": "Optional name of the workflow job"
+          "type": "string"
         },
         "type": {
-          "$ref": "#/$defs/jobTypes",
-          "description": "Built-in presets to use within a workflow job"
+          "type": "string",
+          "const": "build"
         },
         "if": {
           "type": "string",
-          "description": "An expression to conditionally run this job",
           "maxLength": 250
         },
         "needs": {
           "type": "array",
-          "description": "References to other workflow jobs that **needs** to finish successfully before this job runs",
-          "minLength": 1,
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          },
+          "default": []
         },
         "after": {
           "type": "array",
-          "description": "Only run this workflow job **after** these jobs are finished successfully",
-          "minLength": 1,
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "platform": {
+              "type": "string",
+              "enum": [
+                "ios",
+                "android"
+              ]
+            },
+            "profile": {
+              "type": "string",
+              "default": "production"
+            }
+          },
+          "required": [
+            "platform"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": true
+    },
+    "customJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "custom"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "image": {
+          "type": "string",
+          "default": "auto"
+        },
+        "resource_class": {
+          "type": "string",
+          "enum": [
+            "linux-c3d-standard-4",
+            "linux-c3d-standard-8"
+          ],
+          "default": "linux-c3d-standard-4"
         },
         "outputs": {
           "type": "object",
-          "description": "Outputs defined as key-value pairs, that are available from other jobs."
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "steps": {
           "type": "array",
-          "items": { "$ref": "#/$defs/jobStep" }
-        },
-        "params": { "type": "object" }
-      }
-    },
-    "jobStep": {
-      "anyOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["run"],
-          "properties": {
-            "name": { "type": "string" },
-            "id": { "type": "string" },
-            "run": { "type": "string" },
-            "outputs": { "type": "array", "items": { "type": "string" } }
-          }
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["uses"],
-          "properties": {
-            "name": { "type": "string" },
-            "uses": { "$ref": "#/$defs/jobSteps" }
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "run": {
+                    "type": "string"
+                  },
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "required": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "run"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "$ref": "#/$defs/customJob/properties/steps/items/anyOf/0/properties/name"
+                  },
+                  "id": {
+                    "$ref": "#/$defs/customJob/properties/steps/items/anyOf/0/properties/id"
+                  },
+                  "uses": {
+                    "type": "string"
+                  },
+                  "with": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "uses"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         }
-      ]
+      },
+      "required": [
+        "steps"
+      ],
+      "additionalProperties": true
     },
-    "jobSteps": {
-      "description": "TODO: find complete list",
-      "enum": ["eas/checkout", "eas/install_node_modules"]
+    "deployJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "deploy"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "production",
+            "preview",
+            "development"
+          ]
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "alias": {
+              "type": "string"
+            },
+            "prod": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
     },
-    "jobTypes": {
-      "enum": ["build", "submit", "custom", "require-approval", "update", "maestro", "get-build", "deploy"]
+    "getBuildJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "get-build"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "app_build_version": {
+              "type": "string"
+            },
+            "app_identifier": {
+              "type": "string"
+            },
+            "app_version": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            },
+            "distribution": {
+              "type": "string",
+              "enum": [
+                "store",
+                "internal",
+                "simulator"
+              ]
+            },
+            "fingerprint_hash": {
+              "type": "string"
+            },
+            "git_commit_hash": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string",
+              "enum": [
+                "ios",
+                "android"
+              ]
+            },
+            "profile": {
+              "type": "string"
+            },
+            "runtime_version": {
+              "type": "string"
+            },
+            "sdk_version": {
+              "type": "string"
+            },
+            "simulator": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": true
+    },
+    "maestroJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "maestro"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "build_id": {
+              "type": "string"
+            },
+            "flow_path": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "build_id",
+            "flow_path"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": true
+    },
+    "requireApprovalJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "require-approval"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
+    },
+    "submitJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "submit"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "default": "production"
+            },
+            "build_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "build_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": true
+    },
+    "updateJob": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/buildJob/properties/name"
+        },
+        "type": {
+          "type": "string",
+          "const": "update"
+        },
+        "if": {
+          "$ref": "#/$defs/buildJob/properties/if"
+        },
+        "needs": {
+          "$ref": "#/$defs/buildJob/properties/needs"
+        },
+        "after": {
+          "$ref": "#/$defs/buildJob/properties/after"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string"
+            },
+            "platform": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "channel": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": true
     }
-  }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
 }
